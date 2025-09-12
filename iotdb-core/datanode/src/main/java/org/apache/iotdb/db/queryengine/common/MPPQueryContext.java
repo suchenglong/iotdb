@@ -34,11 +34,14 @@ import org.apache.iotdb.db.queryengine.plan.analyze.lock.SchemaLockType;
 import org.apache.iotdb.db.queryengine.plan.planner.memory.MemoryReservationManager;
 import org.apache.iotdb.db.queryengine.plan.planner.memory.NotThreadSafeMemoryReservationManager;
 import org.apache.iotdb.db.queryengine.statistics.QueryPlanStatistics;
+import org.apache.iotdb.db.utils.cte.CteDataStore;
 
 import org.apache.tsfile.read.filter.basic.Filter;
 
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -100,6 +103,8 @@ public class MPPQueryContext implements IAuditEntity {
   private LongConsumer reserveMemoryForSchemaTreeFunc = null;
 
   private boolean userQuery = false;
+
+  private final Map<String, CteDataStore> cteDataStores = new HashMap<>();
 
   public MPPQueryContext(QueryId queryId) {
     this.queryId = queryId;
@@ -433,6 +438,18 @@ public class MPPQueryContext implements IAuditEntity {
     this.userQuery = userQuery;
   }
 
+  public void addCteDataStore(String cteName, CteDataStore dataStore) {
+    cteDataStores.put(cteName, dataStore);
+  }
+
+  public Map<String, CteDataStore> getCteDataStores() {
+    return cteDataStores;
+  }
+
+  public CteDataStore getCteDataStore(String cteName) {
+    return cteDataStores.get(cteName);
+  }
+
   // ================= Authentication Interfaces =========================
 
   private AuditEventType auditEventType;
@@ -516,13 +533,12 @@ public class MPPQueryContext implements IAuditEntity {
   @Override
   public String getSqlString() {
     return sql;
-  }
+
 
   @Override
   public IAuditEntity setSqlString(String sqlString) {
     // Do nothing
     return this;
-  }
 
   // ================= Authentication Interfaces =========================
 }
