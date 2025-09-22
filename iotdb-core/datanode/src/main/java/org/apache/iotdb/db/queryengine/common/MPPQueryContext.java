@@ -43,6 +43,7 @@ import org.apache.tsfile.read.filter.basic.Filter;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -106,6 +107,7 @@ public class MPPQueryContext implements IAuditEntity {
 
   private boolean userQuery = false;
 
+  private Map<NodeRef<Table>, List<String>> cteDistPlans = new HashMap<>();
   private Map<NodeRef<Table>, CteDataStore> cteDataStores = new HashMap<>();
   // If this is a subquery, we do not release CTE query result
   private boolean subquery = false;
@@ -464,6 +466,14 @@ public class MPPQueryContext implements IAuditEntity {
 
   public void setCteDataStores(Map<NodeRef<Table>, CteDataStore> cteDataStores) {
     this.cteDataStores = cteDataStores;
+  }
+
+  public void addCteDistPlan(Table table, List<String> cteDistPlan) {
+    cteDistPlans.put(NodeRef.of(table), cteDistPlan);
+  }
+
+  public Map<NodeRef<Table>, List<String>> getCteDistPlans() {
+    return cteDistPlans;
   }
 
   // ================= Authentication Interfaces =========================
