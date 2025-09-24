@@ -87,6 +87,8 @@ public class MPPQueryContext implements IAuditEntity {
   private final Set<SchemaLockType> acquiredLocks = new HashSet<>();
 
   private boolean isExplainAnalyze = false;
+  // used only in table model for cte query
+  private boolean isVerbose = false;
 
   private QueryPlanStatistics queryPlanStatistics = null;
 
@@ -297,6 +299,14 @@ public class MPPQueryContext implements IAuditEntity {
 
   public boolean isExplainAnalyze() {
     return isExplainAnalyze;
+  }
+
+  public void setVerbose(boolean verbose) {
+    isVerbose = verbose;
+  }
+
+  public boolean isVerbose() {
+    return isVerbose;
   }
 
   public long getAnalyzeCost() {
