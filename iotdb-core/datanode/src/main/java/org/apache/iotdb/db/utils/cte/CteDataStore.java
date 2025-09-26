@@ -39,6 +39,16 @@ public class CteDataStore {
   private long cachedBytes;
   private int cachedRows;
 
+  private boolean explain = false;
+
+  public boolean isExplain() {
+    return explain;
+  }
+
+  public void setExplain(boolean explain) {
+    this.explain = explain;
+  }
+
   public CteDataStore(Query query, TableSchema tableSchema) {
     this.query = query;
     this.tableSchema = tableSchema;

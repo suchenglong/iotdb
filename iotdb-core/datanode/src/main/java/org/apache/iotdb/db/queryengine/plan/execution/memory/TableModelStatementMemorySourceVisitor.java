@@ -27,6 +27,7 @@ import org.apache.iotdb.db.queryengine.plan.planner.LocalExecutionPlanner;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.LogicalQueryPlan;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.PlanGraphPrinter;
 import org.apache.iotdb.db.queryengine.plan.planner.plan.node.PlanNode;
+import org.apache.iotdb.db.queryengine.plan.relational.analyzer.NodeRef;
 import org.apache.iotdb.db.queryengine.plan.relational.planner.SymbolAllocator;
 import org.apache.iotdb.db.queryengine.plan.relational.planner.TableLogicalPlanner;
 import org.apache.iotdb.db.queryengine.plan.relational.planner.distribute.TableDistributedPlanGenerator;
@@ -36,12 +37,19 @@ import org.apache.iotdb.db.queryengine.plan.relational.sql.ast.CountDevice;
 import org.apache.iotdb.db.queryengine.plan.relational.sql.ast.Explain;
 import org.apache.iotdb.db.queryengine.plan.relational.sql.ast.Node;
 import org.apache.iotdb.db.queryengine.plan.relational.sql.ast.ShowDevice;
+import org.apache.iotdb.db.queryengine.plan.relational.sql.ast.Table;
+import org.apache.iotdb.db.utils.cte.CteDataStore;
 
+import org.apache.tsfile.common.conf.TSFileConfig;
 import org.apache.tsfile.enums.TSDataType;
 import org.apache.tsfile.read.common.block.TsBlock;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import static org.apache.iotdb.db.queryengine.common.header.DatasetHeader.EMPTY_HEADER;
 import static org.apache.iotdb.db.queryengine.execution.warnings.WarningCollector.NOOP;
@@ -94,13 +102,33 @@ public class TableModelStatementMemorySourceVisitor
                 Coordinator.getInstance().getDistributionPlanOptimizers(),
                 Coordinator.getInstance().getDataNodeLocationSupplier())
             .generateDistributedPlanWithOptimize(planContext);
+    List<String> cteLines = new ArrayList<>();
+    Map<NodeRef<Table>, CteDataStore> explainCteDataStores = context.getQueryContext().getExplainCteDataStores();
+    if(explainCteDataStores != null){
+      explainCteDataStores.values().stream()
+        .filter(Objects::nonNull)
+        .forEach(value -> {
+          cteLines.add("CTE " + value.getTableSchema().getTableName() + " explain :");
 
-    final List<String> lines =
+          value.getCachedData().forEach(tsBlock ->
+            Arrays.stream(tsBlock.getValueColumns())
+              .flatMap(column -> Arrays.stream(column.getBinaries()))
+              .filter(Objects::nonNull)
+              .map(binary -> binary.getStringValue(TSFileConfig.STRING_CHARSET))
+              .forEach(cteLines::add)
+          );
+          cteLines.add("main explain :");
+        });
+    }
+
+    final List<String> mainLines =
         outputNodeWithExchange.accept(
             new PlanGraphPrinter(),
             new PlanGraphPrinter.GraphContext(
                 context.getQueryContext().getTypeProvider().getTemplatedInfo()));
-
+    List<String> lines = new ArrayList<>();
+    lines.addAll(cteLines);
+    lines.addAll(mainLines);
     return getStatementMemorySource(header, lines);
   }
 

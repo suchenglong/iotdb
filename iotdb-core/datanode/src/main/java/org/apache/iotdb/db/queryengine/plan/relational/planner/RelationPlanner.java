@@ -252,16 +252,43 @@ public class RelationPlanner extends AstVisitor<RelationPlan, Void> {
         if (dataStore != null) {
           List<Symbol> cteSymbols = new ArrayList<>();
           Map<String, Symbol> cteSymbolMap = new HashMap<>();
+//          if(dataStore.isExplain()){
+//            Symbol columnSymbol = symbolAllocator.newSymbol(dataStore.getTableSchema().getTableName(), STRING);
+//            cteSymbols.add(columnSymbol);
+//            cteSymbolMap.put(dataStore.getTableSchema().getTableName(), columnSymbol);
+//            CteScanNode cteScanNode =
+//              new CteScanNode(idAllocator.genPlanNodeId(), table.getName(), cteSymbols, dataStore);
+//            List<Symbol> outputSymbols = new ArrayList<>();
+//            Assignments.Builder assignments = Assignments.builder();
+//            analysis
+//              .getOutputDescriptor(table)
+//              .getVisibleFields()
+//              .forEach(
+//                field -> {
+//                  String columnName = field.getName().orElse("field");
+//                  Symbol symbol = symbolAllocator.newSymbol(columnName, field.getType());
+//                  outputSymbols.add(symbol);
+//                  assignments.put(symbol, symbol.toSymbolReference());
+//                });
+//
+//            // Project Node
+//            ProjectNode projectNode =
+//              new ProjectNode(
+//                queryContext.getQueryId().genPlanNodeId(), cteScanNode, assignments.build());
+//
+//            return new RelationPlan(projectNode, scope, outputSymbols, outerContext);
+//          }
+
           dataStore
-              .getTableSchema()
-              .getColumns()
-              .forEach(
-                  column -> {
-                    Symbol columnSymbol =
-                        symbolAllocator.newSymbol(column.getName(), column.getType());
-                    cteSymbols.add(columnSymbol);
-                    cteSymbolMap.put(column.getName(), columnSymbol);
-                  });
+            .getTableSchema()
+            .getColumns()
+            .forEach(
+              column -> {
+                Symbol columnSymbol =
+                  symbolAllocator.newSymbol(column.getName(), column.getType());
+                cteSymbols.add(columnSymbol);
+                cteSymbolMap.put(column.getName(), columnSymbol);
+              });
 
           // CTE Scan Node
           CteScanNode cteScanNode =

@@ -44,6 +44,16 @@ public class Query extends Statement {
   // query result for common table expression
   private CteDataStore cteDataStore = null;
 
+  private CteDataStore explainCteDataStore = null;
+
+  public CteDataStore getExplainCteDataStore() {
+    return explainCteDataStore;
+  }
+
+  public void setExplainCteDataStore(CteDataStore explainCteDataStore) {
+    this.explainCteDataStore = explainCteDataStore;
+  }
+
   public Query(
       Optional<With> with,
       QueryBody queryBody,

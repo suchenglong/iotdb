@@ -36,8 +36,10 @@ import org.apache.iotdb.db.utils.cte.CteDataStore;
 import org.apache.tsfile.read.filter.basic.Filter;
 
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -101,9 +103,40 @@ public class MPPQueryContext {
 
   private boolean userQuery = false;
 
+  private ExplainType explainType = ExplainType.NONE;
+
+  public ExplainType getExplainType() {
+    return explainType;
+  }
+
+  public void setExplainType(ExplainType explainType) {
+    this.explainType = explainType;
+  }
+
   private Map<NodeRef<Table>, CteDataStore> cteDataStores = new HashMap<>();
+
+  private Map<NodeRef<Table>, CteDataStore> explainCteDataStores = new HashMap<>();
+
+  private List<String> explainAnalyzeCteResult = null;
+
+  public List<String> getExplainAnalyzeCteResult() {
+    return explainAnalyzeCteResult;
+  }
+
+  public void setExplainAnalyzeCteResult(List<String> explainAnalyzeCteResult) {
+    this.explainAnalyzeCteResult = explainAnalyzeCteResult;
+  }
+
   // If this is a subquery, we do not release CTE query result
   private boolean subquery = false;
+
+  public Map<NodeRef<Table>, CteDataStore> getExplainCteDataStores() {
+    return explainCteDataStores;
+  }
+
+  public void setExplainCteDataStores(Map<NodeRef<Table>, CteDataStore> explainCteDataStores) {
+    this.explainCteDataStores = explainCteDataStores;
+  }
 
   public MPPQueryContext(QueryId queryId) {
     this.queryId = queryId;
@@ -446,6 +479,10 @@ public class MPPQueryContext {
 
   public void addCteDataStore(Table table, CteDataStore dataStore) {
     cteDataStores.put(NodeRef.of(table), dataStore);
+  }
+
+  public void addExplainCteDataStore(Table table, CteDataStore dataStore) {
+    explainCteDataStores.put(NodeRef.of(table), dataStore);
   }
 
   public Map<NodeRef<Table>, CteDataStore> getCteDataStores() {

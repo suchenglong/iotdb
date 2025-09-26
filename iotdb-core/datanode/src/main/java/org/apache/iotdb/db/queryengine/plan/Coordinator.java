@@ -395,6 +395,38 @@ public class Coordinator {
   }
 
   public ExecutionResult executeForTableModel(
+    org.apache.iotdb.db.queryengine.plan.relational.sql.ast.Statement statement,
+    SqlParser sqlParser,
+    IClientSession clientSession,
+    long queryId,
+    SessionInfo session,
+    String sql,
+    Metadata metadata,
+    long timeOut,
+    boolean userQuery,
+    boolean isExplainAnalyze) {
+    return execution(
+      queryId,
+      session,
+      sql,
+      userQuery,
+      ((queryContext, startTime) ->{
+        if(isExplainAnalyze){
+          queryContext.setExplainAnalyze(true);
+        }
+        return createQueryExecutionForTableModel(
+          statement,
+          sqlParser,
+          clientSession,
+          queryContext,
+          metadata,
+          timeOut > 0 ? timeOut : CONFIG.getQueryTimeoutThreshold(),
+          startTime);
+        }
+        ));
+  }
+
+  public ExecutionResult executeForTableModel(
       Statement statement,
       SqlParser sqlParser,
       IClientSession clientSession,

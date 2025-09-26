@@ -148,10 +148,10 @@ public class FragmentInstanceExecution {
     statistics.setQueryStatistics(context.getQueryStatistics().toThrift());
     statistics.setState(getInstanceState().toString());
     IDataRegionForQuery dataRegionForQuery = context.getDataRegion();
-    if (dataRegionForQuery instanceof VirtualDataRegion) {
-      // We don't need to output the region having ExplainAnalyzeOperator only.
-      return false;
-    }
+//    if (dataRegionForQuery instanceof VirtualDataRegion) {
+//      // We don't need to output the region having ExplainAnalyzeOperator only.
+//      return false;
+//    }
     statistics.setDataRegion(context.getDataRegion().getDataRegionId());
     statistics.setIp(CONFIG.getInternalAddress() + ":" + CONFIG.getInternalPort());
     statistics.setStartTimeInMS(context.getStartTime());

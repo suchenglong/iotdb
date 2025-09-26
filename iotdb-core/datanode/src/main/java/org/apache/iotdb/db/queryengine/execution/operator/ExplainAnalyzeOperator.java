@@ -25,6 +25,7 @@ import org.apache.iotdb.commons.client.sync.SyncDataNodeInternalServiceClient;
 import org.apache.iotdb.commons.concurrent.threadpool.ScheduledExecutorUtil;
 import org.apache.iotdb.commons.conf.IoTDBConstant;
 import org.apache.iotdb.db.exception.mpp.FragmentInstanceFetchException;
+import org.apache.iotdb.db.queryengine.common.ExplainType;
 import org.apache.iotdb.db.queryengine.common.FragmentInstanceId;
 import org.apache.iotdb.db.queryengine.common.MPPQueryContext;
 import org.apache.iotdb.db.queryengine.execution.MemoryEstimationHelper;
@@ -172,14 +173,18 @@ public class ExplainAnalyzeOperator implements ProcessOperator {
   }
 
   private TsBlock buildResult() throws FragmentInstanceFetchException {
-
+    List<String> analyzeAllResult = new ArrayList();
+    if(mppQueryContext.getExplainType() == ExplainType.EXPLAIN_ANALYZE && mppQueryContext.getExplainAnalyzeCteResult() != null){
+      analyzeAllResult.addAll(mppQueryContext.getExplainAnalyzeCteResult());
+      analyzeAllResult.add("Main explain analyze :");
+    }
     List<String> analyzeResult = buildFragmentInstanceStatistics(instances, verbose);
 
     TsBlockBuilder builder = new TsBlockBuilder(Collections.singletonList(TSDataType.TEXT));
     TimeColumnBuilder timeColumnBuilder = builder.getTimeColumnBuilder();
     ColumnBuilder columnBuilder = builder.getColumnBuilder(0);
-
-    for (String line : analyzeResult) {
+    analyzeAllResult.addAll(analyzeResult);
+    for (String line : analyzeAllResult) {
       timeColumnBuilder.writeLong(0);
       columnBuilder.writeBinary(new Binary(line.getBytes()));
       builder.declarePosition();
