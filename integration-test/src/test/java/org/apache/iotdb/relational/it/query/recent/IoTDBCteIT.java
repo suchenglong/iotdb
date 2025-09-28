@@ -45,7 +45,11 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.apache.iotdb.db.it.utils.TestUtils.tableAssertTestFail;
 import static org.apache.iotdb.db.it.utils.TestUtils.tableResultSetEqualTest;
@@ -181,6 +185,176 @@ public class IoTDBCteIT {
         expectedHeader,
         retArray,
         DATABASE_NAME);
+  }
+
+  @Test
+  public void testCteResultNull() throws SQLException {
+    ResultSet resultSet = null;
+    String sql =
+        "explain analyze with cte1 as materialized (select * from testtb1) select * from testtb,cte1 where testtb.deviceid=cte1.deviceid";
+    try (Connection conn = EnvFactory.getEnv().getConnection(BaseEnv.TABLE_SQL_DIALECT);
+        Statement statement = conn.createStatement()) {
+      statement.execute("Use testdb");
+      statement.execute(
+          "CREATE TABLE IF NOT EXISTS testtb1(deviceid STRING TAG, voltage FLOAT FIELD)");
+      resultSet = statement.executeQuery(sql);
+      StringBuilder sb = new StringBuilder();
+      while (resultSet.next()) {
+        sb.append(resultSet.getString(1));
+      }
+      Assert.assertTrue(sb.toString().contains("CTE Query : 'cte1'Main Query"));
+      statement.execute("DROP TABLE testtb1");
+    } finally {
+      if (resultSet != null) {
+        resultSet.close();
+      }
+    }
+  }
+
+  @Test
+  public void testGetCteResultSuccess() throws SQLException {
+    ResultSet resultSet = null;
+    String sql =
+        "explain analyze with cte1 as materialized (select * from testtb3) select * from testtb where testtb.deviceid in (select deviceid from cte1)";
+    try (Connection conn = EnvFactory.getEnv().getConnection(BaseEnv.TABLE_SQL_DIALECT);
+        Statement statement = conn.createStatement()) {
+      statement.execute("Use testdb");
+      statement.execute(
+          "CREATE TABLE IF NOT EXISTS testtb3(deviceid STRING TAG, voltage FLOAT FIELD)");
+      for (int i = 0; i < 101; i++) {
+        statement.addBatch("insert into testtb3(deviceid,voltage) values('d" + i + "', " + i + ")");
+      }
+      statement.executeBatch();
+      resultSet = statement.executeQuery(sql);
+      StringBuilder sb = new StringBuilder();
+      while (resultSet.next()) {
+        sb.append(resultSet.getString(1));
+      }
+
+      Assert.assertTrue(
+          "When the CTE execution success, the main query does not use cte.",
+          sb.toString().contains("CteScanNode(CteScanOperator)"));
+
+      List<Integer> counts = new ArrayList<>();
+      Pattern pattern = Pattern.compile("Fragment Instances Count:\\s*(\\d+)");
+      Matcher matcher = pattern.matcher(sb.toString());
+      while (matcher.find()) {
+        int count = Integer.parseInt(matcher.group(1));
+        counts.add(count);
+      }
+      Assert.assertEquals(
+          "The result output is incorrect after CTE execution success.",
+          extractFragmentCount(
+              sb.toString(), "CTE Query", "Main Query", "Fragment Instances Count:\\s*(\\d+)"),
+          countFragmentInstances(sb.toString(), "CTE Query", "Main Query", "FRAGMENT-INSTANCE\\["));
+      Assert.assertEquals(
+          "The result output is incorrect after CTE execution fails.",
+          extractFragmentCount(
+              sb.toString(), "Main Query", null, "Fragment Instances Count:\\s*(\\d+)"),
+          countFragmentInstances(sb.toString(), "Main Query", null, "FRAGMENT-INSTANCE\\["));
+
+      statement.execute("DROP TABLE testtb3");
+    } finally {
+      if (resultSet != null) {
+        resultSet.close();
+      }
+    }
+  }
+
+  @Test
+  public void testGetCteResultFailed() throws SQLException {
+    ResultSet resultSet = null;
+    String sql =
+        "explain analyze with cte1 as materialized (select * from testtb2) select * from testtb where testtb.deviceid in (select deviceid from cte1)";
+    try (Connection conn = EnvFactory.getEnv().getConnection(BaseEnv.TABLE_SQL_DIALECT);
+        Statement statement = conn.createStatement()) {
+      statement.execute("Use testdb");
+      statement.execute(
+          "CREATE TABLE IF NOT EXISTS testtb2(deviceid STRING TAG, voltage FLOAT FIELD)");
+      for (int i = 0; i < 10001; i++) {
+        statement.addBatch("insert into testtb2(deviceid,voltage) values('d" + i + "', " + i + ")");
+      }
+      statement.executeBatch();
+      resultSet = statement.executeQuery(sql);
+      StringBuilder sb = new StringBuilder();
+      while (resultSet.next()) {
+        System.out.println(resultSet.getString(1));
+        sb.append(resultSet.getString(1));
+      }
+
+      Assert.assertFalse(
+          "When the CTE execution fails, the main query does not degrade to an inline query.",
+          sb.toString().contains("CteScanNode(CteScanOperator)"));
+      Assert.assertFalse(
+          "When the CTE execution fails, the main query does not degrade to an inline query.",
+          sb.toString().contains("ExplainAnalyzeNode"));
+
+      List<Integer> counts = new ArrayList<>();
+      Pattern pattern = Pattern.compile("Fragment Instances Count:\\s*(\\d+)");
+      Matcher matcher = pattern.matcher(sb.toString());
+      while (matcher.find()) {
+        int count = Integer.parseInt(matcher.group(1));
+        counts.add(count);
+      }
+      Assert.assertEquals(
+          "The result output is incorrect after CTE execution fails.",
+          extractFragmentCount(
+              sb.toString(), "CTE Query", "Main Query", "Fragment Instances Count:\\s*(\\d+)"),
+          countFragmentInstances(sb.toString(), "CTE Query", "Main Query", "FRAGMENT-INSTANCE\\["));
+      Assert.assertEquals(
+          "The result output is incorrect after CTE execution fails.",
+          extractFragmentCount(
+              sb.toString(), "Main Query", null, "Fragment Instances Count:\\s*(\\d+)"),
+          countFragmentInstances(sb.toString(), "Main Query", null, "FRAGMENT-INSTANCE\\["));
+
+      statement.execute("DROP TABLE testtb2");
+    } finally {
+      if (resultSet != null) {
+        resultSet.close();
+      }
+    }
+  }
+
+  private static int countFragmentInstances(
+      String result, String startMarker, String endMarker, String regex) {
+    int startIndex = result.indexOf(startMarker);
+    if (startIndex == -1) {
+      return 0;
+    }
+    int endIndex = (endMarker != null) ? result.indexOf(endMarker, startIndex) : result.length();
+    if (endIndex == -1) {
+      return 0;
+    }
+    String section = result.substring(startIndex, endIndex);
+
+    Pattern pattern = Pattern.compile(regex);
+    Matcher matcher = pattern.matcher(section);
+    int count = 0;
+    while (matcher.find()) {
+      count++;
+    }
+    return count;
+  }
+
+  private static int extractFragmentCount(
+      String result, String startMarker, String endMarker, String regex) {
+    int startIndex = result.indexOf(startMarker);
+    if (startIndex == -1) {
+      return 0;
+    }
+    int endIndex = (endMarker != null) ? result.indexOf(endMarker, startIndex) : result.length();
+    if (endIndex == -1) {
+      return 0;
+    }
+    String section = result.substring(startIndex, endIndex);
+    Pattern r = Pattern.compile(regex);
+    Matcher m = r.matcher(section);
+
+    if (m.find()) {
+      return Integer.parseInt(m.group(1));
+    } else {
+      return 0;
+    }
   }
 
   @Test
@@ -323,6 +497,18 @@ public class IoTDBCteIT {
         Statement statement = connection.createStatement()) {
 
       for (String sql : creationSqls) {
+        statement.execute(sql);
+      }
+    } catch (Exception e) {
+      fail(e.getMessage());
+    }
+  }
+
+  private static void prepareData(String[] sqls) {
+    try (Connection connection = EnvFactory.getEnv().getConnection(BaseEnv.TABLE_SQL_DIALECT);
+        Statement statement = connection.createStatement()) {
+
+      for (String sql : sqls) {
         statement.execute(sql);
       }
     } catch (Exception e) {

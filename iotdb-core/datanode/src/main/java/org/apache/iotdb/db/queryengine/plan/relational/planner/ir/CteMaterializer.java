@@ -253,11 +253,11 @@ public class CteMaterializer {
       context.addCteExplainResult(table, new Pair<>(0, ImmutableList.of()));
       return;
     }
-
+    MPPQueryContext cteContext = execution.getContext();
     FragmentInstanceStatisticsDrawer fragmentInstanceStatisticsDrawer =
         new FragmentInstanceStatisticsDrawer();
-    fragmentInstanceStatisticsDrawer.renderPlanStatistics(context);
-    fragmentInstanceStatisticsDrawer.renderDispatchCost(context);
+    fragmentInstanceStatisticsDrawer.renderPlanStatistics(cteContext);
+    fragmentInstanceStatisticsDrawer.renderDispatchCost(cteContext);
 
     try {
       List<String> lines =
